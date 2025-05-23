@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Железный купол – 3D Симуляция</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['IBM Plex Mono', 'monospace'],
+          },
+          colors: {
+            bisbg: '#181818', // фон
+            bistxt: '#ffe066', // янтарный текст
+            bisborder: '#ffe066',
+            bisaccent: '#fffbe6',
+            bisbtn: '#181818',
+            bisbtnhover: '#ffe066',
+            bisbtntext: '#ffe066',
+            bisbtnhovertext: '#181818',
+          },
+          boxShadow: {
+            'bis-glow': '0 0 8px 2px #ffe06688',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #181818;
+      color: #ffe066;
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 2px #ffe06688;
+      position: relative;
+    }
+    .bis-panel {
+      background: #181818;
+      border: 2px solid #ffe066;
+      color: #ffe066;
+      box-shadow: 0 0 8px 2px #ffe06633;
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1.25rem;
+      font-family: 'IBM Plex Mono', monospace;
+      border-radius: 0;
+    }
+    .bis-btn {
+      background: #181818;
+      color: #ffe066;
+      border: 2px solid #ffe066;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      box-shadow: 0 0 8px 1px #ffe06622;
+      border-radius: 0;
+      transition: background 0.15s, color 0.15s;
+      padding: 0.5rem 1.2rem;
+      font-size: 1rem;
+    }
+    .bis-btn:hover, .bis-btn:focus {
+      background: #ffe066;
+      color: #181818;
+      outline: none;
+      box-shadow: 0 0 12px 2px #ffe06699;
+    }
+    .bis-input {
+      background: #181818;
+      color: #ffe066;
+      border: 2px solid #ffe066;
+      font-family: 'IBM Plex Mono', monospace;
+      border-radius: 0;
+      padding: 0.3rem 0.7rem;
+      font-size: 1rem;
+      outline: none;
+      box-shadow: 0 0 6px 1px #ffe06622;
+      transition: border 0.15s, box-shadow 0.15s;
+    }
+    .bis-input:focus {
+      border-color: #fffbe6;
+      box-shadow: 0 0 12px 2px #ffe06699;
+    }
+    .bis-label {
+      color: #ffe066;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .bis-hr {
+      border: none;
+      border-top: 2px solid #ffe066;
+      margin: 1rem 0;
+    }
+    .bis-title {
+      color: #ffe066;
+      font-size: 1.15rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.7rem;
+      text-shadow: 0 0 4px #ffe06699;
+    }
+    .bis-glow {
+      text-shadow: 0 0 8px #ffe066, 0 0 2px #ffe066;
+    }
+    /* Scanlines эффект */
+    body:before {
+      content: "";
+      pointer-events: none;
+      position: fixed;
+      left: 0; top: 0; right: 0; bottom: 0;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 2px,
+        #ffe06611 3px,
+        transparent 4px
+      );
+      opacity: 0.18;
+      mix-blend-mode: lighten;
+    }
+    /* Кастомный скроллбар */
+    ::-webkit-scrollbar {
+      width: 8px;
+      background: #181818;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #ffe06644;
+      border-radius: 0;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #ffe06699;
+    }
+  </style>
+</head>
+<body class="m-0 overflow-hidden bg-bisbg text-bistxt font-mono">
+  <div id="ui-panel" class="bis-panel absolute top-4 left-4 w-[420px] max-h-[95vh] flex flex-col">
+    <h3 class="bis-title border-b-2 border-bisborder pb-2 mb-4">СИМУЛЯЦИЯ ПЕРЕХВАТА</h3>
+    <div class="flex-1 overflow-y-auto pr-2">
+      <!-- Блок с ракетой -->
+      <div class="mb-4">
+        <button class="w-full flex items-center justify-between bis-btn mb-2" onclick="toggleSection('target-section')">
+          <span class="bis-label text-lg">ЦЕЛЬ (РАКЕТА)</span>
+          <span id="target-arrow">▼</span>
+        </button>
+        <div id="target-section" class="space-y-3">
+          <label class="bis-label block" data-tooltip="Начальная скорость баллистической ракеты в метрах в секунду. Влияет на дальность полета и сложность перехвата.">Начальная скорость (м/с)
+            <input type="number" id="targetSpeed" value="900" min="100" max="3000" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Угол запуска ракеты относительно горизонта в градусах. Оптимальный угол для максимальной дальности - около 45 градусов.">Угол запуска (°)
+            <input type="number" id="targetAngle" value="35" min="10" max="80" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Масса ракеты в килограммах. Влияет на инерцию и сопротивление атмосферы.">Масса (кг)
+            <input type="number" id="targetMass" value="1200" min="100" max="10000" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Коэффициент аэродинамического сопротивления. Меньшие значения означают лучшую аэродинамику.">Коэф. сопротивления Cd
+            <input type="number" id="targetCd" value="0.15" min="0.05" max="1" step="0.05" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Площадь поперечного сечения ракеты в квадратных метрах. Влияет на сопротивление воздуха.">Площадь S (м²)
+            <input type="number" id="targetArea" value="0.8" min="0.1" max="10" step="0.1" class="bis-input w-full mt-1">
+          </label>
+        </div>
+      </div>
+      <hr class="bis-hr">
+      <!-- Блок с перехватчиком -->
+      <div class="mb-4">
+        <button class="w-full flex items-center justify-between bis-btn mb-2" onclick="toggleSection('interceptor-section')">
+          <span class="bis-label text-lg">ПЕРЕХВАТЧИК</span>
+          <span id="interceptor-arrow">▼</span>
+        </button>
+        <div id="interceptor-section" class="space-y-3">
+          <label class="bis-label block" data-tooltip="Масса перехватчика в килограммах. Влияет на инерцию и маневренность.">Масса (кг)
+            <input type="number" id="mass" value="400" min="100" max="5000" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Коэффициент аэродинамического сопротивления. Меньшие значения означают лучшую аэродинамику.">Коэф. сопротивления Cd
+            <input type="number" id="cd" value="0.2" min="0.05" max="1" step="0.05" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Площадь поперечного сечения перехватчика в квадратных метрах. Влияет на сопротивление воздуха.">Площадь S (м²)
+            <input type="number" id="area" value="0.4" min="0.1" max="5" step="0.1" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Сила тяги двигателя перехватчика в ньютонах. Определяет ускорение и максимальную скорость.">Сила тяги (Н)
+            <input type="number" id="thrust" value="30000" min="1000" max="50000" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Время работы двигателя в секундах. После выработки топлива перехватчик продолжает полет по инерции.">Время горения (с)
+            <input type="number" id="burn" value="60" min="1" max="30" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block" data-tooltip="Начальная скорость перехватчика при запуске в метрах в секунду.">Начальная скорость (м/с)
+            <input type="number" id="v0" value="1" min="10" max="500" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block">Радиус поражения (м)
+            <input type="number" id="killRadius" value="20" min="10" max="500" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block">Макс. число корректировок
+            <input type="number" id="maxCorrections" value="900000" min="1" max="100" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block">Маневренность (°/с)
+            <input type="number" id="maneuverability" value="280" min="5" max="180" class="bis-input w-full mt-1">
+          </label>
+        </div>
+      </div>
+      <hr class="bis-hr">
+      <!-- Блок с физикой -->
+      <div class="mb-4">
+        <button class="w-full flex items-center justify-between bis-btn mb-2" onclick="toggleSection('physics-section')">
+          <span class="bis-label text-lg">АТМОСФЕРА И ФИЗИКА</span>
+          <span id="physics-arrow">▼</span>
+        </button>
+        <div id="physics-section" class="space-y-3">
+          <label class="bis-label block">Модель атмосферы
+            <select id="atmosphereModel" class="bis-input w-full mt-1">
+              <option value="exponential">Экспоненциальная (барометрическая)</option>
+              <option value="none">Без атмосферы (вакуум)</option>
+            </select>
+          </label>
+          <label class="bis-label block">Высота атмосферы (м)
+            <input type="number" id="atmosphereHeight" value="9000" min="1000" max="20000" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block">Плотность на уровне моря (кг/м³)
+            <input type="number" id="rho0" value="1.225" min="0.5" max="2" step="0.001" class="bis-input w-full mt-1">
+          </label>
+          <label class="bis-label block">Ускорение свободного падения (м/с²)
+            <input type="number" id="gravity" value="9.81" min="1" max="20" step="0.01" class="bis-input w-full mt-1">
+          </label>
+        </div>
+      </div>
+      <div class="space-y-2 mt-4">
+        <div class="flex items-center justify-between">
+          <label class="bis-label" for="showPrediction">Показывать точку упреждения</label>
+          <input type="checkbox" id="showPrediction" checked class="accent-bisborder w-5 h-5">
+        </div>
+        <div class="flex items-center justify-between">
+          <label class="bis-label" for="showTrajectories">Показывать траектории</label>
+          <input type="checkbox" id="showTrajectories" checked class="accent-bisborder w-5 h-5">
+        </div>
+        <div class="flex items-center justify-between">
+          <label class="bis-label" for="showPhases">Стадии перехватчиков</label>
+          <input type="checkbox" id="showPhases" checked class="accent-bisborder w-5 h-5">
+        </div>
+      </div>
+      <!-- Переносим сюда тип перехвата и макс. количество перехватчиков -->
+      <div class="mt-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <div class="flex-1">
+            <label class="bis-label block mb-1">Тип перехвата</label>
+            <select id="interceptType" class="bis-input w-full">
+              <option value="trajectory">Траектория</option>
+              <option value="lead">Опережение</option>
+            </select>
+          </div>
+          <button id="toggle-constants" class="bis-btn w-10 h-10 flex items-center justify-center text-2xl ml-2" title="Системные константы">⚙️</button>
+        </div>
+        <div>
+          <label class="bis-label block mb-1">Максимальное количество перехватчиков</label>
+          <select id="maxInterceptors" class="bis-input w-full">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="mt-6 pt-6 border-t-2 border-bisborder space-y-3">
+      <div class="flex space-x-3">
+        <button id="startBtn" class="bis-btn flex-1">🚀 ЗАПУСТИТЬ ЦЕЛЬ</button>
+        <button id="pauseBtn" class="bis-btn flex-1">⏸ ПАУЗА</button>
+      </div>
+      <button id="launchInterceptor" disabled class="bis-btn w-full">+ ЗАПУСТИТЬ ПЕРЕХВАТЧИК</button>
+      <button id="resetBtn" class="bis-btn w-full">↺ СБРОСИТЬ СИМУЛЯЦИЮ</button>
+    </div>
+  </div>
+  
+  <div id="stats-panel" class="bis-panel absolute top-4 right-4 w-[340px] text-sm">
+    <h3 class="bis-title border-b-2 border-bisborder pb-2 mb-4">СТАТИСТИКА</h3>
+    <div class="space-y-2">
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Время:</span>
+        <span class="font-bold bis-glow" id="target-time">0.0 с</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Высота цели:</span>
+        <span class="font-bold bis-glow" id="target-height">0 м</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Скорость цели:</span>
+        <span class="font-bold bis-glow" id="target-velocity">0 м/с</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Шанс попадания:</span>
+        <span class="font-bold bis-glow" id="hit-chance">-</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Расстояние:</span>
+        <span class="font-bold bis-glow" id="target-distance">0 м</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="bis-label">Активных перехватчиков:</span>
+        <span class="font-bold bis-glow" id="active-interceptors">0</span>
+      </div>
+      <div id="interceptors-stats" class="mt-4 space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Шаблоны для динамических элементов -->
+  <template id="system-constants-panel-template">
+    <div id="system-constants-panel" class="bis-panel absolute top-4 left-[440px] w-[420px] max-h-[95vh] overflow-y-auto" style="display: none;">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="bis-title border-b-2 border-bisborder pb-2 mb-0">СИСТЕМНЫЕ КОНСТАНТЫ</h3>
+        <button id="reset-constants" class="bis-btn w-9 h-9 flex items-center justify-center text-xl ml-2" title="Сбросить к пресету"><span style="display:inline-block;transform:rotate(-20deg)">⟳</span></button>
+      </div>
+      <div class="space-y-4" id="constants-container"></div>
+    </div>
+  </template>
+
+  <template id="constant-input-template">
+    <div class="mb-4 relative">
+      <div class="flex items-center justify-between mb-2">
+        <label class="bis-label"></label>
+        <button class="bis-btn w-7 h-7 p-0 flex items-center justify-center text-lg cursor-help">?</button>
+      </div>
+      <input type="number" class="bis-input w-full">
+    </div>
+  </template>
+
+  <template id="toggle-constants-button-template">
+    <!-- Удаляем старую кнопку-шестерёнку -->
+  </template>
+
+  <template id="message-template">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl p-6 glass-panel rounded-xl hidden text-center z-50 shadow-2xl"></div>
+  </template>
+
+  <template id="bottom-notification-template">
+    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 glass-panel p-4 rounded-xl text-lg text-center z-50 hidden min-w-[300px] shadow-2xl"></div>
+  </template>
+
+  <div id="message" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-3xl p-5 glass-panel rounded-xl hidden text-center z-50"></div>
+
+  <div id="bottom-notification" class="absolute bottom-5 left-1/2 transform -translate-x-1/2 glass-panel p-4 rounded-xl text-lg text-center z-50 hidden min-w-[300px]"></div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
+  
+  <script src="simulation.js"></script>
+  <script>
+    // Функция для переключения секций
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      const arrow = document.getElementById(sectionId.replace('section', 'arrow'));
+      
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        section.style.display = 'none';
+        arrow.style.transform = 'rotate(-90deg)';
+      }
+    }
+
+    // Инициализация секций
+    document.addEventListener('DOMContentLoaded', () => {
+      const sections = ['target-section', 'interceptor-section', 'physics-section'];
+      sections.forEach(section => {
+        const element = document.getElementById(section);
+        if (element) {
+          element.style.display = 'none';
+        }
+      });
+
+      // --- Логика для системных констант ---
+      const panel = document.getElementById('system-constants-panel');
+      const toggleBtn = document.getElementById('toggle-constants');
+      if (panel && toggleBtn) {
+        panel.style.left = '-460px';
+        panel.style.transition = 'left 0.3s cubic-bezier(.4,2,.6,1)';
+        let open = false;
+        toggleBtn.onclick = () => {
+          open = !open;
+          panel.style.left = open ? 'calc(100vw - 820px)' : '-460px';
+          toggleBtn.style.transform = open ? 'rotate(180deg)' : 'none';
+        };
+      }
+    });
+  </script>
+</body>
+</html>
